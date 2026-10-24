@@ -118,6 +118,9 @@ elif st.session_state.page == "Take a quiz":
     difficulty = st.select_slider("Difficulty", options=["Beginner", "Intermediate", "Advanced"], value="Beginner")
     count = st.selectbox("Questions", [5, 8, 10], index=0)
     if st.button("Create my quiz ✨", type="primary"):
+        for key in list(st.session_state.keys()):
+            if key.startswith("feedback_"):
+                del st.session_state[key]
         st.session_state.quiz_questions = get_questions(subject, topic, difficulty, count)
         st.session_state.quiz_subject = subject
         st.session_state.quiz_topic = topic
@@ -164,6 +167,9 @@ elif st.session_state.page == "Take a quiz":
         st.markdown("### Keep the loop going")
         st.write("Your answers are saved locally and will influence your next topic recommendation.")
         if st.button("Try another quiz", type="primary"):
+            for key in list(st.session_state.keys()):
+                if key.startswith("feedback_"):
+                    del st.session_state[key]
             st.session_state.quiz_questions = []
             st.session_state.quiz_finished = False
             st.session_state.quiz_answers = {}
