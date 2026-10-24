@@ -76,16 +76,16 @@ if "quiz_finished" not in st.session_state:
     st.session_state.quiz_finished = False
 
 with st.sidebar:
-    st.markdown("## ☕ LearnLoop")
-    st.caption("your little corner to level up")
+    st.markdown("## LearnLoop")
+    st.caption("A place to learn by doing.")
     page = st.radio("YOUR SPACE", ["Home", "Take a quiz", "My progress"], index=["Home", "Take a quiz", "My progress"].index(st.session_state.page))
     st.session_state.page = page
     st.divider()
-    st.markdown("**The little loop**")
-    st.markdown("📚 Learn a concept")
-    st.markdown("⚡ Practice a little")
-    st.markdown("🌱 Improve over time")
-    st.caption("made for curious minds ♡")
+    st.markdown("**Your routine**")
+    st.markdown("Learn a concept")
+    st.markdown("Practice a little")
+    st.markdown("Improve over time")
+    st.caption("Small practice. Real progress.")
 
 stats = get_stats()
 total_attempts = stats["attempts"]
@@ -94,8 +94,8 @@ xp = total_attempts * 10
 st.markdown(f"""
 <div class="hero">
   <div style="font-size:.82rem;letter-spacing:1.6px;text-transform:uppercase;font-weight:700;">A LITTLE STUDY, A LITTLE EVERY DAY</div>
-  <h1>Make room for a little progress.</h1>
-  <p>Your cosy corner for Python, ML, databases, and the things you're curious about. No cramming required.</p>
+  <h1>Build knowledge, one question at a time.</h1>
+  <p>A few focused questions today can make tomorrow’s concepts easier. Choose a topic and start where you are.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -112,9 +112,9 @@ if st.session_state.page == "Home":
     st.write("")
     left, right = st.columns([1.4, 1])
     with left:
-        st.subheader("What shall we learn today?")
+        st.subheader("A small session goes a long way.")
         st.markdown("A few questions are enough to keep the gears turning. Pick a topic and have a go.")
-        if st.button("Let’s do a little quiz  ↗", type="primary", use_container_width=True):
+        if st.button("Start a practice session", type="primary", use_container_width=True):
             st.session_state.page = "Take a quiz"
             st.rerun()
         st.write("")
@@ -165,8 +165,8 @@ elif st.session_state.page == "Take a quiz":
         q = questions[idx]
         st.progress((idx + 1) / len(questions), text=f"A little challenge · {idx + 1} of {len(questions)}")
         st.markdown(f'<div class="question-card"><div class="kicker">YOUR QUESTION</div><p>{q["question"]}</p></div>', unsafe_allow_html=True)
-        choice = st.radio("Pick the answer that feels right", q["options"], index=None, key=f"answer_{idx}", label_visibility="collapsed")
-        if st.button("Check my answer  ↗", type="primary", key=f"lock_{idx}", disabled=(choice is None or f"feedback_{idx}" in st.session_state)):
+        choice = st.radio("Choose one answer", q["options"], index=None, key=f"answer_{idx}", label_visibility="collapsed")
+        if st.button("Check answer", type="primary", key=f"lock_{idx}", disabled=(choice is None or f"feedback_{idx}" in st.session_state)):
             st.session_state.quiz_answers[idx] = choice
             correct = choice == q["answer"]
             record_attempt(st.session_state.quiz_subject, st.session_state.quiz_topic, st.session_state.quiz_difficulty, correct)
@@ -175,16 +175,16 @@ elif st.session_state.page == "Take a quiz":
         feedback = st.session_state.get(f"feedback_{idx}")
         if feedback:
             if feedback[0]:
-                st.success("Lovely work! +10 XP 🌼")
+                st.success("Correct. +10 XP")
             else:
-                st.error(f"Not this time — the answer is: {q['answer']}")
+                st.error(f"Not quite. Correct answer: {q['answer']}")
             st.write(q["explanation"])
             if idx + 1 < len(questions):
-                if st.button("On to the next one  →", type="primary", key=f"next_{idx}"):
+                if st.button("Next question →", type="primary", key=f"next_{idx}"):
                     st.session_state.quiz_index += 1
                     st.rerun()
             else:
-                if st.button("See how I did  ✿", type="primary", key="finish"):
+                if st.button("Finish quiz", type="primary", key="finish"):
                     st.session_state.quiz_finished = True
                     st.rerun()
 
@@ -205,7 +205,7 @@ elif st.session_state.page == "Take a quiz":
             st.rerun()
 
 elif st.session_state.page == "My progress":
-    st.subheader("Your little progress garden 🌱")
+    st.subheader("Your learning progress")
     history = stats["history"]
     if history.empty:
         st.info("Your progress chart will appear after you answer your first question.")
