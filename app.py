@@ -134,7 +134,7 @@ elif st.session_state.page == "Take a quiz":
         st.progress((idx + 1) / len(questions), text=f"Question {idx + 1} of {len(questions)}")
         st.markdown(f"### {q['question']}")
         choice = st.radio("Choose one answer", q["options"], index=None, key=f"answer_{idx}", label_visibility="collapsed")
-        if st.button("Lock in answer", type="primary", key=f"lock_{idx}", disabled=choice is None):
+        if st.button("Lock in answer", type="primary", key=f"lock_{idx}", disabled=(choice is None or f"feedback_{idx}" in st.session_state)):
             st.session_state.quiz_answers[idx] = choice
             correct = choice == q["answer"]
             record_attempt(st.session_state.quiz_subject, st.session_state.quiz_topic, st.session_state.quiz_difficulty, correct)
