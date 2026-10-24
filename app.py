@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from src.quiz_engine import get_questions, record_attempt, get_stats
 from src.recommender import recommend_topic
 
-st.set_page_config(page_title="LearnLoop", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="LearnLoop", layout="wide")
 
 # ---------- Theme ----------
 st.markdown("""
@@ -29,8 +29,8 @@ p,span,label,li,.stMarkdown { color:var(--ink); }
 [data-testid="stSidebar"] h2 { font-size:1.65rem; }
 [data-testid="stSidebar"] [data-testid="stRadio"] label { background:transparent; border:0; border-radius:12px; padding:8px 10px; }
 [data-testid="stSidebar"] [data-testid="stRadio"] label:hover { background:#dce8d5; }
-.hero { padding:28px 32px 25px; border-radius:20px; background:#dce8d5; border:1px solid #cadbc4; color:var(--ink); margin:8px 0 22px; position:relative; overflow:hidden; }
-.hero:after { content:"✳"; position:absolute; right:30px; top:-23px; font-size:8rem; color:#b6cfad; transform:rotate(14deg); }
+.hero { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:28px 32px 25px; border-radius:20px; background:#dce8d5; border:1px solid #cadbc4; color:var(--ink); margin:8px 0 22px; position:relative; overflow:hidden; }
+.hero:after { content:""; position:absolute; right:18px; top:14px; width:185px; height:185px; border-radius:50%; background:#d1e2c9; } .hero-copy{max-width:760px;position:relative;z-index:1}.hero-art{width:155px;min-width:125px;height:145px;object-fit:contain;position:relative;z-index:1}
 .hero h1 { color:var(--ink) !important; font-size:clamp(2rem,4vw,3rem); line-height:1.08; margin:10px 0 9px; max-width:720px; }
 .hero p { color:#506a57 !important; margin:0; font-size:1.02rem; max-width:700px; }
 .eyebrow { color:#4f7355; font-family:'DM Mono',monospace; font-size:.76rem; letter-spacing:.08em; font-weight:500; text-transform:uppercase; }
@@ -93,18 +93,21 @@ accuracy = stats["accuracy"]
 xp = total_attempts * 10
 st.markdown(f"""
 <div class="hero">
-  <div style="font-size:.82rem;letter-spacing:1.6px;text-transform:uppercase;font-weight:700;">A LITTLE STUDY, A LITTLE EVERY DAY</div>
-  <h1>Build knowledge, one question at a time.</h1>
-  <p>A few focused questions today can make tomorrow’s concepts easier. Choose a topic and start where you are.</p>
+  <div class="hero-copy">
+    <div class="eyebrow">YOUR FRIENDLY STUDY SPACE</div>
+    <h1>Build knowledge, one question at a time.</h1>
+    <p>A few focused questions today can make tomorrow’s concepts easier. Choose a topic and start where you are.</p>
+  </div>
+  <img class="hero-art" src="https://api.dicebear.com/9.x/notionists/svg?seed=LearnLoop&backgroundColor=e4eddf&body=variant01&hair=variant01" alt="Illustrated learner with a notebook">
 </div>
 """, unsafe_allow_html=True)
 
 if st.session_state.page == "Home":
     m1, m2, m3 = st.columns(3)
     for col, label, value, hint in [
-        (m1, "⚡ TOTAL XP", str(xp), "10 XP per answered question"),
-        (m2, "🧠 QUESTIONS ANSWERED", str(total_attempts), "Every attempt counts"),
-        (m3, "🎯 OVERALL ACCURACY", f"{accuracy:.0f}%", "Based on saved attempts"),
+        (m1, "TOTAL XP", str(xp), "10 XP per answered question"),
+        (m2, "QUESTIONS ANSWERED", str(total_attempts), "Every attempt counts"),
+        (m3, "OVERALL ACCURACY", f"{accuracy:.0f}%", "Based on saved attempts"),
     ]:
         with col:
             st.markdown(f'<div class="metric-card"><div class="metric-label">{label}</div><div class="metric-value">{value}</div><div class="metric-hint">{hint}</div></div>', unsafe_allow_html=True)
@@ -128,7 +131,7 @@ if st.session_state.page == "Home":
             with col:
                 st.markdown(f'<div class="metric-card"><div style="font-size:1.8rem">{emoji}</div><b>{title}</b><div class="metric-hint">{subtitle}</div></div>', unsafe_allow_html=True)
     with right:
-        st.subheader("A nudge for next time 🌱")
+        st.subheader("Your next topic")
         topic = recommend_topic()
         st.info(f"**{topic['topic']}**\n\n{topic['reason']}")
         st.caption("Recommendation uses your saved quiz history. With little history, LearnLoop starts with a beginner-friendly topic.")
@@ -146,7 +149,7 @@ elif st.session_state.page == "Take a quiz":
     topic = st.selectbox("Choose a topic", topic_map[subject])
     difficulty = st.select_slider("Difficulty", options=["Beginner", "Intermediate", "Advanced"], value="Beginner")
     count = st.selectbox("Questions", [5, 8, 10], index=0)
-    if st.button("Create my quiz ✨", type="primary"):
+    if st.button("Create my quiz", type="primary"):
         for key in list(st.session_state.keys()):
             if key.startswith("feedback_"):
                 del st.session_state[key]
