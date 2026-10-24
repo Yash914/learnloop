@@ -164,7 +164,7 @@ elif st.session_state.page == "Take a quiz":
         idx = st.session_state.quiz_index
         q = questions[idx]
         st.progress((idx + 1) / len(questions), text=f"A little challenge · {idx + 1} of {len(questions)}")
-        st.markdown(f"### {q['question']}")
+        st.markdown(f'<div class="question-card"><div class="kicker">YOUR QUESTION</div><p>{q["question"]}</p></div>', unsafe_allow_html=True)
         choice = st.radio("Pick the answer that feels right", q["options"], index=None, key=f"answer_{idx}", label_visibility="collapsed")
         if st.button("Check my answer  ↗", type="primary", key=f"lock_{idx}", disabled=(choice is None or f"feedback_{idx}" in st.session_state)):
             st.session_state.quiz_answers[idx] = choice
