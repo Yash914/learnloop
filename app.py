@@ -24,8 +24,28 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 :root{--bg:#f5f7fb;--panel:#fff;--ink:#172033;--muted:#68748a;--line:#e2e8f0;--accent:#5b5bd6;--accent-soft:#eeefff;--green:#167d64;--amber:#a65b12}
 html,body,[class*="css"]{font-family:'DM Sans',sans-serif;color:var(--ink)}
-.stApp{background:var(--bg)}
+.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--bg);color:var(--ink)}
 .block-container{max-width:1280px;padding-top:1.5rem;padding-bottom:3rem}
+/* Force readable contrast for Streamlit widgets regardless of the user's theme */
+.stMarkdown,.stMarkdown p,.stMarkdown li,.stText,.stCaption,.stCaption p,
+[data-testid="stWidgetLabel"],[data-testid="stWidgetLabel"] p,
+[data-testid="stMarkdownContainer"],[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stRadio"] label,[data-testid="stCheckbox"] label,
+[data-testid="stSelectbox"] label,[data-testid="stMultiSelect"] label,
+[data-testid="stNumberInput"] label,[data-testid="stTextInput"] label,
+[data-testid="stTextArea"] label,[data-testid="stSlider"] label,
+[data-testid="stFileUploader"] label {color:var(--ink)!important}
+.stCaption,.stCaption p,small,.muted{color:var(--muted)!important}
+[data-testid="stRadio"] [role="radiogroup"] label,
+[data-testid="stCheckbox"] label{background:transparent}
+[data-baseweb="select"] *,[data-baseweb="input"] input,
+[data-baseweb="textarea"] textarea{color:var(--ink)!important}
+[data-baseweb="select"]>div,[data-baseweb="input"]>div,
+[data-baseweb="textarea"]>div{background:#fff!important}
+[data-testid="stDataFrame"],[data-testid="stTable"]{color:var(--ink)!important}
+[data-testid="stAlert"] p{color:var(--ink)!important}
+.stProgress [data-testid="stMarkdownContainer"]{color:var(--ink)!important}
 h1,h2,h3{font-family:'Space Grotesk',sans-serif!important;letter-spacing:-.035em;color:var(--ink)!important}
 h1{font-size:2.25rem!important} h2{font-size:1.55rem!important} h3{font-size:1.15rem!important}
 p,li,label{color:var(--ink)}
