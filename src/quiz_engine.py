@@ -44,34 +44,44 @@ def _connect():
             topic_accuracy_before REAL NOT NULL,
             attempts_before INTEGER NOT NULL,
             correct INTEGER NOT NULL,
+            question_text TEXT DEFAULT '',
+            session_id TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(attempts)").fetchall()}
+    if "question_text" not in columns:
+        conn.execute("ALTER TABLE attempts ADD COLUMN question_text TEXT DEFAULT ''")
+    if "session_id" not in columns:
+        conn.execute("ALTER TABLE attempts ADD COLUMN session_id TEXT DEFAULT ''")
     conn.commit()
     return conn
 
-def get_questions(subject, topic, difficulty, count=5):
-    """Return questions from the local bank. LLM generation can replace this later."""
+def get_available_topics(subject):
+    return sorted({q["topic"] for q in QUESTION_BANK if q["subject"] == subject})
+
+def get_available_difficulties(subject, topic):
+    order = ["Beginner", "Intermediate", "Advanced"]
+    available = {q["difficulty"] for q in QUESTION_BANK
+                 if q["subject"] == subject and q["topic"] == topic}
+    return [level for level in order if level in available]
+
+def get_available_question_count(subject, topic, difficulty):
+    return len({q["question"] for q in QUESTION_BANK
+                if q["subject"] == subject and q["topic"] == topic
+                and q["difficulty"] == difficulty})
+
+def get_questions(subject, topic, difficulty, count=5, exclude_questions=None):
+    """Return unique questions for the exact selected topic and difficulty."""
+    excluded = set(exclude_questions or [])
     candidates = [q.copy() for q in QUESTION_BANK
                   if q["subject"] == subject and q["topic"] == topic
-                  and q["difficulty"] == difficulty]
-    if not candidates:
-        candidates = [q.copy() for q in QUESTION_BANK
-                      if q["subject"] == subject and q["topic"] == topic]
-    if not candidates:
-        candidates = [q.copy() for q in QUESTION_BANK if q["subject"] == subject]
-    if not candidates:
-        candidates = [q.copy() for q in QUESTION_BANK]
+                  and q["difficulty"] == difficulty
+                  and q["question"] not in excluded]
     random.shuffle(candidates)
-    # Repeat and shuffle when the requested count exceeds available questions.
-    result = []
-    while len(result) < count:
-        batch = [q.copy() for q in candidates]
-        random.shuffle(batch)
-        result.extend(batch[:count - len(result)])
-    return result[:count]
+    return candidates[:max(0, min(int(count), len(candidates)))]
 
-def record_attempt(subject, topic, difficulty, correct):
+def record_attempt(subject, topic, difficulty, correct, question_text="", session_id=""):
     conn = _connect()
     rows = conn.execute(
         "SELECT correct FROM attempts WHERE subject=? AND topic=? ORDER BY id",
@@ -81,9 +91,9 @@ def record_attempt(subject, topic, difficulty, correct):
     topic_accuracy_before = (sum(row[0] for row in rows) / attempts_before) if attempts_before else 0.5
     conn.execute(
         """INSERT INTO attempts
-        (subject, topic, difficulty, topic_accuracy_before, attempts_before, correct)
-        VALUES (?, ?, ?, ?, ?, ?)""",
-        (subject, topic, difficulty, float(topic_accuracy_before), attempts_before, int(bool(correct)))
+        (subject, topic, difficulty, topic_accuracy_before, attempts_before, correct, question_text, session_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (subject, topic, difficulty, float(topic_accuracy_before), attempts_before, int(bool(correct)), question_text, session_id)
     )
     conn.commit()
     conn.close()
@@ -91,11 +101,11 @@ def record_attempt(subject, topic, difficulty, correct):
 def get_stats():
     conn = _connect()
     rows = conn.execute(
-        "SELECT subject, topic, difficulty, correct, created_at FROM attempts ORDER BY id"
+        "SELECT id, subject, topic, difficulty, correct, created_at, question_text, session_id FROM attempts ORDER BY id"
     ).fetchall()
     conn.close()
     import pandas as pd
-    history = pd.DataFrame(rows, columns=["subject", "topic", "difficulty", "correct", "created_at"])
+    history = pd.DataFrame(rows, columns=["id", "subject", "topic", "difficulty", "correct", "created_at", "question_text", "session_id"])
     attempts = len(history)
     accuracy = float(history["correct"].mean() * 100) if attempts else 0.0
     return {"attempts": attempts, "accuracy": accuracy, "history": history}
