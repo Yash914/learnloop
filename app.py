@@ -190,7 +190,10 @@ elif page == "Practice":
             st.rerun()
         feedback = st.session_state.get(f"feedback_{idx}")
         if feedback:
-            st.success("Correct answer") if feedback[0] else st.error(f"Correct answer: {q['answer']}")
+            if feedback[0]:
+                st.success("Correct answer")
+            else:
+                st.error(f"Correct answer: {q['answer']}")
             st.write(feedback[1])
             if idx + 1 < len(questions):
                 if st.button("Next question", type="primary", key=f"next_{idx}"):
