@@ -1,233 +1,287 @@
-import streamlit as st
+import sys
+import uuid
+from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
-from pathlib import Path
-import sys
+import plotly.graph_objects as go
+import streamlit as st
 
 ROOT = Path(__file__).parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from src.quiz_engine import get_questions, record_attempt, get_stats
+from src.quiz_engine import (
+    get_available_difficulties, get_available_question_count, get_available_topics,
+    get_questions, get_stats, record_attempt,
+)
 from src.recommender import recommend_topic
+from src.model import evaluate_model
 
-st.set_page_config(page_title="LearnLoop", layout="wide")
+st.set_page_config(page_title="LearnLoop | Learning Analytics", page_icon="LL", layout="wide")
 
-# ---------- Theme ----------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
-:root{--bg:#f1efff;--paper:#fff;--ink:#201b3b;--muted:#77718f;--purple:#6547f5;--purple-dark:#4930ce;--lime:#dfff70;--pink:#ff719b;--line:#ded9f5}
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+:root{--bg:#f5f7fb;--panel:#fff;--ink:#172033;--muted:#68748a;--line:#e2e8f0;--accent:#5b5bd6;--accent-soft:#eeefff;--green:#167d64;--amber:#a65b12}
 html,body,[class*="css"]{font-family:'DM Sans',sans-serif;color:var(--ink)}
-.stApp{background:radial-gradient(ellipse at 85% 0%,#e2dcff 0%,transparent 35%),var(--bg);color:var(--ink)}
-.block-container{max-width:1160px;padding-top:1.2rem;padding-bottom:3rem}
-h1,h2,h3{font-family:'Space Grotesk',sans-serif!important;color:var(--ink)!important;letter-spacing:-.04em;font-weight:700!important}
-p,span,label,li{color:var(--ink)}
-[data-testid="stSidebar"]{background:#211b42;border-right:0}
-[data-testid="stSidebar"] *{color:#f8f6ff}
-[data-testid="stSidebar"] h2{font-size:1.8rem}
-[data-testid="stSidebar"] [data-testid="stRadio"] label{background:transparent;border:1px solid transparent;border-radius:12px;padding:9px 12px}
-[data-testid="stSidebar"] [data-testid="stRadio"] label:hover{background:#39305f}
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label p,[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] label span{color:#f8f6ff!important}
-[data-testid="stSidebar"] hr{border-color:#49416d}
-.hero{display:flex;align-items:center;justify-content:space-between;gap:22px;padding:32px 34px;border-radius:26px;background:linear-gradient(115deg,#6547f5 0%,#7858ff 65%,#8e72ff 100%);border:0;color:#fff;margin:8px 0 24px;position:relative;overflow:hidden;box-shadow:0 8px 0 #d7d0fb}
-.hero:after{content:"";position:absolute;right:45px;top:-70px;width:260px;height:260px;border-radius:50%;background:rgba(223,255,112,.18)}
-.hero-copy{max-width:760px;position:relative;z-index:1}
-.hero .eyebrow{color:var(--lime);font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
-.hero h1{color:white!important;font-size:clamp(2.1rem,4.2vw,3.25rem);line-height:1.05;margin:12px 0;max-width:720px}
-.hero p{color:#f0ecff!important;margin:0;font-size:1.02rem;line-height:1.6;max-width:650px}
-.hero-art{width:160px;min-width:125px;height:150px;object-fit:contain;position:relative;z-index:1;filter:drop-shadow(0 8px 0 rgba(40,24,100,.12))}
-.metric-card{background:var(--paper);border:1px solid var(--line);border-radius:19px;padding:18px 20px;min-height:112px;box-shadow:0 5px 0 #e0daf8;transition:transform .16s,box-shadow .16s}
-.metric-card:hover{transform:translateY(-3px);box-shadow:0 8px 0 #d6cff6}
-.metric-label{color:var(--muted)!important;font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.055em}
-.metric-value{color:var(--ink)!important;font-family:'Space Grotesk',sans-serif;font-size:2.25rem;font-weight:700;margin-top:5px}
-.metric-hint{color:var(--muted)!important;font-size:.82rem}
-div[data-testid="stMetric"]{background:white;padding:17px 19px;border:1px solid var(--line);border-radius:18px;box-shadow:0 5px 0 #e0daf8}
-div[data-testid="stMetric"] label,div[data-testid="stMetric"] [data-testid="stMetricValue"]{color:var(--ink)!important}
-div.stButton>button{border-radius:13px;border:1px solid #d8d1f6;background:white;color:var(--ink);font-weight:800;padding:.68rem 1rem;box-shadow:0 4px 0 #ded8f6;transition:transform .15s,box-shadow .15s}
-div.stButton>button:hover{border-color:var(--purple);color:var(--purple-dark);transform:translateY(-2px);box-shadow:0 6px 0 #d5cdfa}
-div.stButton>button[kind="primary"]{background:var(--lime);border-color:var(--lime);color:#282344!important;box-shadow:0 4px 0 #b7d84c}
-div.stButton>button[kind="primary"]:hover{background:#d2f55d;color:#201b3b!important;box-shadow:0 6px 0 #b7d84c}
-[data-testid="stRadio"]>label{color:var(--muted)!important;font-weight:800}
-[data-testid="stRadio"] [role="radiogroup"]{gap:10px}
-[data-testid="stRadio"] [role="radiogroup"]>label{background:#fff!important;border:1.5px solid #ded9f5!important;border-radius:14px!important;padding:13px 16px!important;margin:0!important;color:var(--ink)!important;box-shadow:0 3px 0 #e8e3fb;transition:background .15s,border-color .15s,transform .15s}
-[data-testid="stRadio"] [role="radiogroup"]>label:hover{background:#f6f3ff!important;border-color:#9c8bff!important;transform:translateY(-1px)}
-[data-testid="stRadio"] [role="radiogroup"]>label p,[data-testid="stRadio"] [role="radiogroup"]>label span,[data-testid="stRadio"] [role="radiogroup"]>label div{color:#201b3b!important;opacity:1!important}
-[data-testid="stRadio"] [role="radiogroup"]>label:has(input:checked){background:#eeeaff!important;border-color:var(--purple)!important;box-shadow:0 3px 0 #d4cbff}
-[data-testid="stSelectbox"] label,[data-testid="stSlider"] label{color:var(--ink)!important;font-weight:800}
-[data-baseweb="select"]>div{background:#fff;border-color:#dcd6f5;border-radius:12px;color:var(--ink)}
-[data-testid="stProgressBar"]>div{background:#ded8f8;border-radius:12px}
-[data-testid="stProgressBar"]>div>div{background:var(--pink);border-radius:12px}
-[data-testid="stAlert"]{border-radius:15px;border:1px solid #dcd5ff}
+.stApp{background:var(--bg)}
+.block-container{max-width:1280px;padding-top:1.5rem;padding-bottom:3rem}
+h1,h2,h3{font-family:'Space Grotesk',sans-serif!important;letter-spacing:-.035em;color:var(--ink)!important}
+h1{font-size:2.25rem!important} h2{font-size:1.55rem!important} h3{font-size:1.15rem!important}
+p,li,label{color:var(--ink)}
+[data-testid="stSidebar"]{background:#151d31;border-right:1px solid #27324a}
+[data-testid="stSidebar"] *{color:#e8edf8}
+[data-testid="stSidebar"] [data-testid="stRadio"] label{padding:9px 11px;border-radius:9px}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:hover{background:#26314b}
+[data-testid="stSidebar"] hr{border-color:#34405a}
+.brand{font-family:'Space Grotesk',sans-serif;font-size:1.65rem;font-weight:700;letter-spacing:-.04em;color:#fff}
+.brand span{color:#a7a7ff}
+.eyebrow{font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.11em;font-size:.72rem;color:var(--accent);font-weight:500}
+.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin:5px 0 22px}
+.page-head p{color:var(--muted);margin-top:5px}
+.tag{display:inline-block;border:1px solid var(--line);background:#fff;color:var(--muted);padding:6px 10px;border-radius:7px;font-size:.75rem;font-family:'DM Mono',monospace}
+.metric{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:17px 19px;min-height:116px}
+.metric .label{font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-size:.69rem}
+.metric .value{font-family:'Space Grotesk',sans-serif;font-size:2rem;font-weight:700;color:var(--ink);margin-top:8px}
+.metric .hint{font-size:.8rem;color:var(--muted);margin-top:2px}
+.panel{background:white;border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.callout{background:var(--accent-soft);border:1px solid #d8d9ff;border-radius:11px;padding:16px 18px}
+.question{background:#fff;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:20px 22px;margin:12px 0 18px}
+.question .meta{font-family:'DM Mono',monospace;color:var(--accent);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}
+.question .text{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:1.3rem;line-height:1.5;margin-top:8px}
+div.stButton>button{border-radius:8px;border:1px solid #d4dbea;background:#fff;color:var(--ink);font-weight:600;padding:.62rem 1rem}
+div.stButton>button[kind="primary"]{background:var(--accent);border-color:var(--accent);color:white}
+div.stButton>button[kind="primary"]:hover{background:#4848bd;border-color:#4848bd;color:white}
+[data-baseweb="select"]>div{border-radius:8px;border-color:#d4dbea;background:white}
+[data-testid="stMetric"]{background:white;border:1px solid var(--line);border-radius:12px;padding:12px}
+div[data-testid="stPlotlyChart"],div[data-testid="stDataFrame"]{background:white;border:1px solid var(--line);border-radius:12px;padding:8px}
+[data-testid="stAlert"]{border-radius:10px}
+small,.muted{color:var(--muted)}
 hr{border-color:var(--line)}
-.eyebrow{font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--purple)}
-.question-card{background:white;border:1px solid #ded9f5;border-left:6px solid var(--pink);border-radius:18px;padding:22px 24px;margin:13px 0 18px;box-shadow:0 5px 0 #e5e0fa}
-.question-card .kicker{font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:#a83e68}
-.question-card p{color:#201b3b!important;font-family:'Space Grotesk',sans-serif;font-size:1.3rem;font-weight:700;margin:8px 0 0;line-height:1.45}
-div[data-testid="stPlotlyChart"],div[data-testid="stDataFrame"]{background:white;border:1px solid var(--line);border-radius:16px;padding:8px}
-.small-muted{color:var(--muted)!important;font-size:.88rem}
-@media(max-width:700px){.hero{padding:22px}.hero-art{width:95px;min-width:80px;height:100px}.hero h1{font-size:2rem}}
 </style>
 """, unsafe_allow_html=True)
 
-if "page" not in st.session_state:
-    st.session_state.page = "Home"
-if "quiz_questions" not in st.session_state:
-    st.session_state.quiz_questions = []
-if "quiz_index" not in st.session_state:
-    st.session_state.quiz_index = 0
-if "quiz_answers" not in st.session_state:
-    st.session_state.quiz_answers = {}
-if "quiz_finished" not in st.session_state:
-    st.session_state.quiz_finished = False
+for key, default in {
+    "page": "Overview", "quiz_questions": [], "quiz_index": 0, "quiz_answers": {},
+    "quiz_finished": False, "quiz_session_id": None, "seen_questions": set(),
+}.items():
+    if key not in st.session_state:
+        st.session_state[key] = default
 
 with st.sidebar:
-    st.markdown("## LearnLoop")
-    st.caption("A place to learn by doing.")
-    page = st.radio("YOUR SPACE", ["Home", "Take a quiz", "My progress"], index=["Home", "Take a quiz", "My progress"].index(st.session_state.page))
+    st.markdown('<div class="brand">Learn<span>Loop</span></div>', unsafe_allow_html=True)
+    st.caption("Adaptive practice · measurable progress")
+    st.divider()
+    page = st.radio("WORKSPACE", ["Overview", "Practice", "Learning analytics", "Model insights"],
+                    index=["Overview", "Practice", "Learning analytics", "Model insights"].index(st.session_state.page))
     st.session_state.page = page
     st.divider()
-    st.markdown("**Your routine**")
-    st.markdown("Learn a concept")
-    st.markdown("Practice a little")
-    st.markdown("Improve over time")
-    st.caption("Small practice. Real progress.")
+    st.caption("MINI PROJECT · MACHINE LEARNING")
+    st.caption("Recommendations use your saved practice history.")
 
 stats = get_stats()
-total_attempts = stats["attempts"]
+history = stats["history"]
+attempts = stats["attempts"]
 accuracy = stats["accuracy"]
-xp = total_attempts * 10
-st.markdown(f"""
-<div class="hero">
-  <div class="hero-copy">
-    <div class="eyebrow">YOUR FRIENDLY STUDY SPACE</div>
-    <h1>Build knowledge, one question at a time.</h1>
-    <p>A few focused questions today can make tomorrow’s concepts easier. Choose a topic and start where you are.</p>
-  </div>
-  <img class="hero-art" src="https://api.dicebear.com/9.x/notionists/svg?seed=LearnLoop&backgroundColor=c7b8ff&body=variant01&hair=variant01" alt="Illustrated learner with a notebook">
-</div>
-""", unsafe_allow_html=True)
+correct_n = int(history["correct"].sum()) if attempts else 0
+topics_seen = int(history["topic"].nunique()) if attempts else 0
+topic_stats = (history.groupby(["subject", "topic"], as_index=False)
+               .agg(attempts=("correct", "size"), accuracy=("correct", "mean"))
+               if attempts else pd.DataFrame(columns=["subject", "topic", "attempts", "accuracy"]))
+if not topic_stats.empty:
+    topic_stats["accuracy_pct"] = topic_stats["accuracy"] * 100
+    topic_stats["topic_label"] = topic_stats["topic"] + " · " + topic_stats["subject"]
 
-if st.session_state.page == "Home":
-    m1, m2, m3 = st.columns(3)
-    for col, label, value, hint in [
-        (m1, "TOTAL XP", str(xp), "10 XP per answered question"),
-        (m2, "QUESTIONS ANSWERED", str(total_attempts), "Every attempt counts"),
-        (m3, "OVERALL ACCURACY", f"{accuracy:.0f}%", "Based on saved attempts"),
-    ]:
-        with col:
-            st.markdown(f'<div class="metric-card"><div class="metric-label">{label}</div><div class="metric-value">{value}</div><div class="metric-hint">{hint}</div></div>', unsafe_allow_html=True)
+def metric_card(label, value, hint):
+    st.markdown(f'<div class="metric"><div class="label">{label}</div><div class="value">{value}</div><div class="hint">{hint}</div></div>', unsafe_allow_html=True)
 
+def page_header(title, subtitle, tag):
+    st.markdown(f'<div class="page-head"><div><div class="eyebrow">LEARNLOOP / {tag}</div><h1>{title}</h1><p>{subtitle}</p></div><div class="tag">LOCAL DATA · SQLITE</div></div>', unsafe_allow_html=True)
+
+if page == "Overview":
+    page_header("Learning workspace", "A clear view of what you know, where you are improving, and what to practise next.", "OVERVIEW")
+    cols = st.columns(4)
+    with cols[0]: metric_card("Questions answered", f"{attempts}", "Saved attempts across all sessions")
+    with cols[1]: metric_card("Overall accuracy", f"{accuracy:.1f}%", "Correct answers / total attempts")
+    with cols[2]: metric_card("Topics practised", f"{topics_seen}", "Distinct subject-topic pairs")
+    with cols[3]: metric_card("Correct answers", f"{correct_n}", "Questions answered correctly")
     st.write("")
-    left, right = st.columns([1.4, 1])
+    left, right = st.columns([1.45, 1])
     with left:
-        st.subheader("A small session goes a long way.")
-        st.markdown("A few questions are enough to keep the gears turning. Pick a topic and have a go.")
-        if st.button("Start a practice session", type="primary", use_container_width=True):
-            st.session_state.page = "Take a quiz"
-            st.rerun()
-        st.write("")
-        st.subheader("Pick up where curiosity takes you")
-        cards = st.columns(3)
-        for col, emoji, title, subtitle in [
-            (cards[0], "🐍", "Python", "Programming basics"),
-            (cards[1], "🧠", "Machine Learning", "Models & concepts"),
-            (cards[2], "🗄️", "DBMS", "Data & SQL"),
-        ]:
-            with col:
-                st.markdown(f'<div class="metric-card"><div style="font-size:1.8rem">{emoji}</div><b>{title}</b><div class="metric-hint">{subtitle}</div></div>', unsafe_allow_html=True)
+        st.subheader("Performance by topic")
+        if topic_stats.empty:
+            st.info("Answer some questions to populate topic-level performance.")
+        else:
+            chart = px.bar(topic_stats.sort_values("accuracy_pct"), x="accuracy_pct", y="topic_label",
+                           orientation="h", color="accuracy_pct", color_continuous_scale=["#e4e7f3", "#5b5bd6"],
+                           range_x=[0, 100], labels={"accuracy_pct":"Accuracy (%)","topic_label":"Topic"},
+                           hover_data={"attempts":True,"accuracy_pct":":.1f","topic_label":True})
+            chart.update_layout(height=max(300, 42*len(topic_stats)), margin=dict(l=10,r=10,t=15,b=10),
+                                plot_bgcolor="white",paper_bgcolor="white",coloraxis_showscale=False,
+                                xaxis=dict(showgrid=True,gridcolor="#edf0f5"),yaxis=dict(showgrid=False))
+            st.plotly_chart(chart,use_container_width=True)
+            st.caption("Read alongside the attempt count: a percentage based on one answer is not yet a reliable mastery estimate.")
     with right:
-        st.subheader("Your next topic")
-        topic = recommend_topic()
-        st.info(f"**{topic['topic']}**\n\n{topic['reason']}")
-        st.caption("Recommendation uses your saved quiz history. With little history, LearnLoop starts with a beginner-friendly topic.")
+        st.subheader("Recommended next topic")
+        rec = recommend_topic()
+        st.markdown(f'<div class="callout"><div class="eyebrow">PERSONALISED PRACTICE</div><h3>{rec["topic"]}</h3><p>{rec["reason"]}</p></div>', unsafe_allow_html=True)
+        st.write("")
+        if st.button("Start practice", type="primary", use_container_width=True):
+            st.session_state.page = "Practice"
+            st.rerun()
+        st.subheader("Recent activity")
+        if history.empty:
+            st.caption("No saved attempts yet.")
+        else:
+            recent = history.tail(6).iloc[::-1].copy()
+            recent["Result"] = recent["correct"].map({1:"Correct",0:"Incorrect"})
+            recent["When"] = pd.to_datetime(recent["created_at"], errors="coerce").dt.strftime("%d %b, %H:%M")
+            st.dataframe(recent[["When","subject","topic","difficulty","Result"]].rename(
+                columns={"subject":"Subject","topic":"Topic","difficulty":"Level"}), hide_index=True, use_container_width=True)
 
-elif st.session_state.page == "Take a quiz":
-    st.subheader("Let’s set up a tiny challenge")
+elif page == "Practice":
+    page_header("Practice session", "Choose a topic and difficulty. LearnLoop never silently swaps your selected level.", "PRACTICE")
     subjects = ["Python", "Machine Learning", "DBMS", "Data Structures"]
-    subject = st.selectbox("Choose a subject", subjects)
-    topic_map = {
-        "Python": ["Variables & Data Types", "Loops", "Functions"],
-        "Machine Learning": ["Linear Regression", "Classification", "Model Evaluation"],
-        "DBMS": ["SQL Basics", "Keys & Constraints", "Normalization"],
-        "Data Structures": ["Arrays", "Stacks & Queues", "Trees"],
-    }
-    topic = st.selectbox("Choose a topic", topic_map[subject])
-    difficulty = st.select_slider("Difficulty", options=["Beginner", "Intermediate", "Advanced"], value="Beginner")
-    count = st.selectbox("Questions", [5, 8, 10], index=0)
-    if st.button("Create my quiz", type="primary"):
+    subject = st.selectbox("Subject", subjects)
+    topics = get_available_topics(subject)
+    topic = st.selectbox("Topic", topics)
+    levels = get_available_difficulties(subject, topic)
+    difficulty = st.selectbox("Difficulty", levels, index=0)
+    available = get_available_question_count(subject, topic, difficulty)
+    st.caption(f"{available} unique questions currently available for this topic and level.")
+    count = st.selectbox("Questions in this session", [3, 5, 8, 10], index=1)
+    if count > available:
+        st.warning(f"Only {available} questions are available for this exact selection. The session will contain {available}; no question will be duplicated.")
+    if st.button("Start session", type="primary", disabled=(available == 0)):
         for key in list(st.session_state.keys()):
-            if key.startswith("feedback_"):
+            if key.startswith("feedback_") or key.startswith("answer_") or key.startswith("lock_") or key.startswith("next_"):
                 del st.session_state[key]
-        st.session_state.quiz_questions = get_questions(subject, topic, difficulty, count)
+        excluded = st.session_state.seen_questions
+        questions = get_questions(subject, topic, difficulty, count, exclude_questions=excluded)
+        if not questions:
+            # If the learner has seen the entire bank, start a new review cycle, still without within-session repeats.
+            questions = get_questions(subject, topic, difficulty, count)
+            st.session_state.seen_questions = set()
+        st.session_state.quiz_questions = questions
         st.session_state.quiz_subject = subject
         st.session_state.quiz_topic = topic
         st.session_state.quiz_difficulty = difficulty
         st.session_state.quiz_index = 0
         st.session_state.quiz_answers = {}
         st.session_state.quiz_finished = False
+        st.session_state.quiz_session_id = str(uuid.uuid4())
+        st.session_state.page = "Practice"
         st.rerun()
 
     questions = st.session_state.quiz_questions
     if questions and not st.session_state.quiz_finished:
         idx = st.session_state.quiz_index
         q = questions[idx]
-        st.progress((idx + 1) / len(questions), text=f"A little challenge · {idx + 1} of {len(questions)}")
-        st.markdown(f'<div class="question-card"><div class="kicker">YOUR QUESTION</div><p>{q["question"]}</p></div>', unsafe_allow_html=True)
-        choice = st.radio("Choose one answer", q["options"], index=None, key=f"answer_{idx}", label_visibility="collapsed")
+        st.progress((idx + 1) / len(questions), text=f"Question {idx + 1} of {len(questions)}")
+        st.markdown(f'<div class="question"><div class="meta">{st.session_state.quiz_subject} / {st.session_state.quiz_topic} / {st.session_state.quiz_difficulty}</div><div class="text">{q["question"]}</div></div>', unsafe_allow_html=True)
+        choice = st.radio("Select one answer", q["options"], index=None, key=f"answer_{idx}", label_visibility="collapsed")
         if st.button("Check answer", type="primary", key=f"lock_{idx}", disabled=(choice is None or f"feedback_{idx}" in st.session_state)):
             st.session_state.quiz_answers[idx] = choice
             correct = choice == q["answer"]
-            record_attempt(st.session_state.quiz_subject, st.session_state.quiz_topic, st.session_state.quiz_difficulty, correct)
+            record_attempt(st.session_state.quiz_subject, st.session_state.quiz_topic,
+                           st.session_state.quiz_difficulty, correct, q["question"], st.session_state.quiz_session_id)
+            st.session_state.seen_questions.add(q["question"])
             st.session_state[f"feedback_{idx}"] = (correct, q["explanation"])
             st.rerun()
         feedback = st.session_state.get(f"feedback_{idx}")
         if feedback:
-            if feedback[0]:
-                st.success("Correct. +10 XP")
-            else:
-                st.error(f"Not quite. Correct answer: {q['answer']}")
-            st.write(q["explanation"])
+            st.success("Correct answer") if feedback[0] else st.error(f"Correct answer: {q['answer']}")
+            st.write(feedback[1])
             if idx + 1 < len(questions):
-                if st.button("Next question →", type="primary", key=f"next_{idx}"):
+                if st.button("Next question", type="primary", key=f"next_{idx}"):
                     st.session_state.quiz_index += 1
                     st.rerun()
-            else:
-                if st.button("Finish quiz", type="primary", key="finish"):
-                    st.session_state.quiz_finished = True
-                    st.rerun()
-
+            elif st.button("Complete session", type="primary", key="finish"):
+                st.session_state.quiz_finished = True
+                st.rerun()
     if questions and st.session_state.quiz_finished:
-        correct_n = sum(1 for i, q in enumerate(questions) if st.session_state.quiz_answers.get(i) == q["answer"])
-        st.balloons()
-        st.success("Quest complete!")
-        st.metric("Your score", f"{correct_n}/{len(questions)}", f"{correct_n / len(questions):.0%}")
-        st.markdown("### Keep the loop going")
-        st.write("Your answers are saved locally and will influence your next topic recommendation.")
-        if st.button("Try another quiz", type="primary"):
-            for key in list(st.session_state.keys()):
-                if key.startswith("feedback_"):
-                    del st.session_state[key]
+        correct_count = sum(st.session_state.quiz_answers.get(i) == q["answer"] for i,q in enumerate(questions))
+        pct = correct_count / len(questions) * 100
+        st.subheader("Session summary")
+        cols = st.columns(3)
+        with cols[0]: metric_card("Correct", f"{correct_count}/{len(questions)}", "Answers correct this session")
+        with cols[1]: metric_card("Session accuracy", f"{pct:.1f}%", "For this session only")
+        with cols[2]: metric_card("Difficulty", st.session_state.quiz_difficulty, st.session_state.quiz_topic)
+        st.write("")
+        st.caption("Your answers were saved locally and are now included in your learning history.")
+        if st.button("Start another session", type="primary"):
             st.session_state.quiz_questions = []
             st.session_state.quiz_finished = False
             st.session_state.quiz_answers = {}
             st.rerun()
 
-elif st.session_state.page == "My progress":
-    st.subheader("Your learning progress")
-    history = stats["history"]
+elif page == "Learning analytics":
+    page_header("Learning analytics", "Inspect accuracy, topic coverage, difficulty performance and changes over time.", "ANALYTICS")
     if history.empty:
-        st.info("Your progress chart will appear after you answer your first question.")
+        st.info("Your analytics will appear after your first answered question.")
     else:
-        topic_df = history.groupby(["subject", "topic"], as_index=False).agg(
-            attempts=("correct", "count"), accuracy=("correct", "mean")
-        )
-        topic_df["accuracy_pct"] = topic_df["accuracy"] * 100
-        fig = px.bar(topic_df, x="topic", y="accuracy_pct", color="subject", range_y=[0, 100],
-                     labels={"topic": "Topic", "accuracy_pct": "Accuracy (%)", "subject": "Subject"},
-                     title="Accuracy by topic")
-        fig.update_layout(plot_bgcolor="white", paper_bgcolor="white", legend_title_text="")
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(topic_df[["subject", "topic", "attempts", "accuracy_pct"]].rename(
-            columns={"subject": "Subject", "topic": "Topic", "attempts": "Attempts", "accuracy_pct": "Accuracy (%)"}
-        ), use_container_width=True, hide_index=True)
-        st.caption("Performance is based on the attempts recorded on this device.")
+        dates = pd.to_datetime(history["created_at"], errors="coerce")
+        daily = history.assign(date=dates.dt.date).dropna(subset=["date"]).groupby("date",as_index=False).agg(
+            attempts=("correct","size"), accuracy=("correct","mean"))
+        daily["accuracy_pct"] = daily["accuracy"]*100
+        left,right=st.columns([1.5,1])
+        with left:
+            st.subheader("Accuracy over time")
+            if daily.empty:
+                st.caption("Timestamps are not available for the existing history.")
+            else:
+                fig=px.line(daily,x="date",y="accuracy_pct",markers=True,range_y=[0,100],
+                            labels={"date":"Date","accuracy_pct":"Accuracy (%)"})
+                fig.update_traces(line=dict(color="#5b5bd6",width=3),marker=dict(size=8))
+                fig.update_layout(height=320,margin=dict(l=10,r=10,t=10,b=10),plot_bgcolor="white",paper_bgcolor="white",
+                                  xaxis=dict(showgrid=False),yaxis=dict(gridcolor="#edf0f5"))
+                st.plotly_chart(fig,use_container_width=True)
+        with right:
+            st.subheader("Accuracy by difficulty")
+            diff=history.groupby("difficulty",as_index=False).agg(attempts=("correct","size"),accuracy=("correct","mean"))
+            diff["accuracy_pct"]=diff["accuracy"]*100
+            diff["difficulty"]=pd.Categorical(diff["difficulty"],["Beginner","Intermediate","Advanced"],ordered=True)
+            diff=diff.sort_values("difficulty")
+            fig=px.bar(diff,x="difficulty",y="accuracy_pct",range_y=[0,100],text="attempts",
+                       labels={"difficulty":"Difficulty","accuracy_pct":"Accuracy (%)","attempts":"Attempts"},
+                       color_discrete_sequence=["#5b5bd6"])
+            fig.update_traces(texttemplate="%{text} attempts",textposition="outside")
+            fig.update_layout(height=320,margin=dict(l=10,r=10,t=10,b=20),plot_bgcolor="white",paper_bgcolor="white",
+                              yaxis=dict(gridcolor="#edf0f5"))
+            st.plotly_chart(fig,use_container_width=True)
+        st.subheader("Topic mastery table")
+        mastery=topic_stats[["subject","topic","attempts","accuracy_pct"]].copy()
+        mastery["accuracy_pct"]=mastery["accuracy_pct"].round(1)
+        mastery["signal"]=mastery.apply(lambda r:"Limited evidence" if r["attempts"]<5 else ("Needs practice" if r["accuracy_pct"]<65 else ("Developing" if r["accuracy_pct"]<80 else "Strong")),axis=1)
+        st.dataframe(mastery.rename(columns={"subject":"Subject","topic":"Topic","attempts":"Attempts","accuracy_pct":"Accuracy (%)","signal":"Interpretation"}),hide_index=True,use_container_width=True)
+        st.caption("Interpretation is a simple practice heuristic, not a formal psychometric mastery score. Fewer than five attempts are labelled limited evidence.")
+        st.subheader("Recent answers")
+        recent=history.tail(20).iloc[::-1].copy()
+        recent["Result"]=recent["correct"].map({1:"Correct",0:"Incorrect"})
+        recent["Date"]=pd.to_datetime(recent["created_at"],errors="coerce").dt.strftime("%Y-%m-%d %H:%M")
+        st.dataframe(recent[["Date","subject","topic","difficulty","question_text","Result"]].rename(
+            columns={"subject":"Subject","topic":"Topic","difficulty":"Level","question_text":"Question"}),hide_index=True,use_container_width=True)
+
+elif page == "Model insights":
+    page_header("Model insights", "See what the recommendation model has learned, how it is evaluated, and when its evidence is insufficient.", "MODEL")
+    st.subheader("Recommendation pipeline")
+    st.markdown('<div class="panel"><b>1 · Capture</b> — each answer is stored in SQLite with subject, topic, difficulty and outcome.<br><br><b>2 · Features</b> — historical topic accuracy, number of prior attempts and difficulty level.<br><br><b>3 · Model</b> — Logistic Regression estimates probability of a correct answer when enough labelled history exists.<br><br><b>4 · Recommendation</b> — topics with lower estimated success and weaker historical accuracy are prioritised; unseen topics receive an exploration bonus.</div>',unsafe_allow_html=True)
+    st.write("")
+    evaluation=evaluate_model()
+    if not evaluation.get("ready"):
+        st.warning(evaluation.get("message","Not enough data to evaluate the model."))
+        st.caption(f"Current saved attempts: {attempts}. Evaluation requires at least 20 usable records and both correct and incorrect outcomes.")
+    else:
+        cols=st.columns(4)
+        for col,label,key in zip(cols,["Cross-validated accuracy","Precision","Recall","F1-score"],["accuracy","precision","recall","f1"]):
+            with col: metric_card(label,f'{evaluation[key]*100:.1f}%',"Stratified cross-validation")
+        st.write("")
+        st.markdown(f'<div class="panel"><b>Evaluation setup</b><br>{evaluation["folds"]}-fold stratified cross-validation; metrics are calculated on held-out folds, not the fitted training predictions.<br><br><b>Majority-class baseline accuracy:</b> {evaluation["baseline_accuracy"]*100:.1f}%<br><b>Records:</b> {evaluation["rows"]} · <b>Correct:</b> {evaluation["correct"]} · <b>Incorrect:</b> {evaluation["incorrect"]}</div>',unsafe_allow_html=True)
+        st.caption("These metrics describe predicting correctness from logged features; they are not a benchmark of quiz difficulty or learning gain. Results can be unstable on a small history.")
+    st.subheader("Current data coverage")
+    coverage=history.groupby(["subject","difficulty"],as_index=False).agg(attempts=("correct","size"),accuracy=("correct","mean")) if attempts else pd.DataFrame()
+    if coverage.empty:
+        st.info("No model training data yet.")
+    else:
+        coverage["accuracy_pct"]=(coverage["accuracy"]*100).round(1)
+        st.dataframe(coverage[["subject","difficulty","attempts","accuracy_pct"]].rename(columns={"subject":"Subject","difficulty":"Difficulty","attempts":"Attempts","accuracy_pct":"Accuracy (%)"}),hide_index=True,use_container_width=True)
