@@ -17,7 +17,7 @@ from src.quiz_engine import (
 from src.recommender import recommend_topic
 from src.model import evaluate_model
 
-st.set_page_config(page_title="LearnLoop | Learning Analytics", page_icon="LL", layout="wide")
+st.set_page_config(page_title="LearnLoop | Learning Analytics", layout="wide")
 
 st.markdown("""
 <style>
