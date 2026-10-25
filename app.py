@@ -50,7 +50,19 @@ h1,h2,h3{font-family:'Space Grotesk',sans-serif!important;letter-spacing:-.035em
 h1{font-size:2.25rem!important} h2{font-size:1.55rem!important} h3{font-size:1.15rem!important}
 p,li,label{color:var(--ink)}
 [data-testid="stSidebar"]{background:#151d31;border-right:1px solid #27324a}
-[data-testid="stSidebar"] *{color:#e8edf8}
+[data-testid="stSidebar"],[data-testid="stSidebar"] *{color:#e8edf8!important}
+[data-testid="stSidebar"] [data-testid="stRadio"] label,
+[data-testid="stSidebar"] [data-testid="stRadio"] label *,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] *,
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] *{color:#e8edf8!important}
+[data-testid="stHeader"]{background:#f5f7fb!important}
+[data-testid="stHeader"] *{color:#172033!important}
+.js-plotly-plot .plotly text{fill:#526079!important}
+.js-plotly-plot .plotly .xtick text,.js-plotly-plot .plotly .ytick text,
+.js-plotly-plot .plotly .gtitle,.js-plotly-plot .plotly .legend text{fill:#526079!important}
+
 [data-testid="stSidebar"] [data-testid="stRadio"] label{padding:9px 11px;border-radius:9px}
 [data-testid="stSidebar"] [data-testid="stRadio"] label:hover{background:#26314b}
 [data-testid="stSidebar"] hr{border-color:#34405a}
@@ -137,7 +149,7 @@ if page == "Overview":
                            range_x=[0, 100], labels={"accuracy_pct":"Accuracy (%)","topic_label":"Topic"},
                            hover_data={"attempts":True,"accuracy_pct":":.1f","topic_label":True})
             chart.update_layout(height=max(300, 42*len(topic_stats)), margin=dict(l=10,r=10,t=15,b=10),
-                                plot_bgcolor="white",paper_bgcolor="white",coloraxis_showscale=False,
+                                plot_bgcolor="white",paper_bgcolor="white",font=dict(color="#526079"),coloraxis_showscale=False,
                                 xaxis=dict(showgrid=True,gridcolor="#edf0f5"),yaxis=dict(showgrid=False))
             st.plotly_chart(chart,use_container_width=True)
             st.caption("Read alongside the attempt count: a percentage based on one answer is not yet a reliable mastery estimate.")
