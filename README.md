@@ -1,18 +1,19 @@
-# 🎯 LearnLoop
+# LearnLoop
 
 **A Personalized Quiz Recommendation System Using Machine Learning**
 
-LearnLoop is a small, gamified learning app for practising technical subjects. It gives instant feedback, stores quiz attempts locally, tracks progress, and recommends topics based on performance.
+LearnLoop is a Streamlit mini-project for technical practice and data-driven topic recommendations. It records quiz outcomes locally, provides explanations, analyses performance, and uses a Logistic Regression baseline to estimate the probability of answering correctly when enough data exists.
 
 ## Features
 
-- Interactive Streamlit UI with subject/topic/difficulty selection
-- Multiple-choice quizzes with explanations
-- XP-style progress dashboard and topic accuracy charts
-- Local SQLite storage for quiz attempts
-- History-based topic recommendations that prioritise weaker or unpractised topics
-- An optional Logistic Regression baseline that can be trained after enough real quiz attempts have been collected
-- Built-in questions, so no API key is required to run the first version
+- Four subjects: Python, Machine Learning, DBMS, and Data Structures
+- Topic and difficulty selection based on the question bank's actual coverage
+- No silent difficulty fallback and no duplicate questions within a quiz
+- Question history stored in SQLite, including outcome, difficulty, timestamp, and question text
+- Analytics for topic accuracy, accuracy over time, difficulty-level performance, and recent answers
+- Topic recommendations based on historical accuracy, practice count, and an optional Logistic Regression estimate
+- Model insights page with stratified cross-validation metrics and a majority-class baseline
+- No API key required
 
 ## Tech stack
 
@@ -34,37 +35,44 @@ Python 3.10 or newer is recommended.
    .\venv\Scripts\Activate.ps1
    ```
 
-3. Install packages:
+3. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   python -m pip install -r requirements.txt
    ```
 
 4. Start the app:
    ```bash
-   streamlit run app.py
+   python -m streamlit run app.py
    ```
 
 ## Project structure
 
 ```text
 learnloop/
-├── app.py
+├── app.py                 # Streamlit pages and visual analytics
 ├── requirements.txt
 ├── src/
-│   ├── quiz_engine.py
-│   ├── recommender.py
-│   └── model.py
-├── assets/
-├── data/
+│   ├── quiz_engine.py     # Question bank, selection, SQLite history
+│   ├── recommender.py     # History-based topic recommendation
+│   └── model.py           # Logistic Regression and cross-validation evaluation
 └── README.md
 ```
 
-## Machine learning plan
+## How the ML component works
 
-The current prototype uses a transparent performance-based recommender. The Logistic Regression module is an early baseline for predicting answer correctness using prior topic accuracy, number of previous attempts, and question difficulty. It only trains when at least 20 real attempts and both correct/incorrect outcomes exist; before that, it returns no prediction.
+The Logistic Regression baseline uses three features captured before each answer: historical accuracy for that topic, number of previous attempts, and difficulty encoded as Beginner=0, Intermediate=1, Advanced=2. Its target is whether the answer was correct.
 
-For a credible evaluation, collect more interactions and evaluate using a time-aware or held-out split. Avoid claiming model accuracy before that evaluation. The first version uses a verified-by-us static question bank; LLM-generated questions can be integrated later through the same question-generation interface, with output validation and answer review.
+The app waits for at least 20 recorded attempts and both outcome classes before fitting/evaluating. The Model Insights page uses stratified cross-validation to produce out-of-fold predictions and reports accuracy, precision, recall, F1-score, plus a majority-class baseline. Small histories can produce unstable metrics, so the page shows a warning until the minimum conditions are met. These metrics evaluate answer-correctness prediction, not learning gains or the intrinsic quality of questions.
+
+Topic recommendations prioritise topics with lower historical performance and exploration of unpractised topics. When the model can be trained, its predicted correctness probability contributes to the ranking; otherwise, the recommender falls back to transparent history-based scoring.
+
+## Important limitations
+
+- The question bank is static and still a small educational prototype; question coverage varies by topic and difficulty. The app displays available counts and never silently substitutes another level.
+- Attempts are stored in a local SQLite database on the machine running the app. There are no accounts or cloud sync.
+- Cross-validation is a useful initial check, but a larger dataset and a time-aware or external held-out evaluation are needed before making strong claims about predictive performance.
+- The recommender is an educational prototype, not a validated measure of mastery.
 
 ## Current status
 
-Early prototype — local use, static question bank, SQLite history. User accounts, cloud sync, and LLM question generation are not implemented yet.
+Improved prototype focused on reliable question selection, interpretable analytics, and transparent model evaluation. Future work could add a larger reviewed question bank, adaptive difficulty policies, tests, and a temporal evaluation dataset.
