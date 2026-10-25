@@ -1,6 +1,8 @@
 """Personalized topic recommendations using quiz history and Logistic Regression."""
 from src.quiz_engine import QUESTION_BANK, _connect
-from src.model import predict_correctness
+from src.model import train_correctness_model
+
+DIFFICULTY_SCORE = {"Beginner": 0, "Intermediate": 1, "Advanced": 2}
 
 
 def recommend_topic():
@@ -32,20 +34,19 @@ def recommend_topic():
         for subject, topic, accuracy, count in rows
     }
 
-    # The classifier becomes available only after enough real attempts have
-    # been saved and both correct and incorrect answers are represented.
-    model_available = predict_correctness(0.5, 0, "Beginner") is not None
-
+    # Fit once per recommendation request. The model is available only after
+    # enough saved attempts exist and both correct and incorrect answers occur.
+    model = train_correctness_model()
     ranked = []
+
     for (subject, topic), difficulty in topics.items():
         accuracy, count = history.get((subject, topic), (0.5, 0))
 
-        if model_available:
-            probability_correct = predict_correctness(
-                accuracy, count, difficulty
-            )
-            # Lower predicted success and lower historical accuracy increase
-            # priority. A small bonus gives unattempted topics a chance.
+        if model is not None:
+            features = [[accuracy, count, DIFFICULTY_SCORE.get(difficulty, 0)]]
+            probability_correct = float(model.predict_proba(features)[0][1])
+            # Prioritize topics with lower predicted success, with a smaller
+            # historical-accuracy component and a bonus for unattempted topics.
             score = (
                 0.7 * (1.0 - probability_correct)
                 + 0.3 * (1.0 - accuracy)
@@ -64,8 +65,7 @@ def recommend_topic():
                     "chance of a correct answer. More practice may help."
                 )
         elif count > 0:
-            # Until enough data exists to train the classifier, use the
-            # transparent performance-history scoring rule.
+            # Fallback until there is sufficient data to train Logistic Regression.
             score = (1.0 - accuracy) + 0.15 / (count + 1)
             reason = (
                 f"Your accuracy here is {accuracy:.0%}. A little more practice "
